@@ -66,7 +66,11 @@ class Guider
 
 public:
 
+    // the constuctor takes the host name an instance number for the PHD2 server.
+    // Call Connect() to establish the connection to PHD2.
     Guider(const char *hostname, unsigned int phd2_instance = 1);
+
+    // The destructor will disconnect from PHD2
     ~Guider();
 
     // when any of the API methods below fail they will return false, and additional 
