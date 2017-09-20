@@ -29,6 +29,7 @@ SOFTWARE.
 
 #include <jsoncpp/json/json.h>
 #include <string>
+#include <vector>
 
 struct SettleProgress
 {
@@ -79,8 +80,9 @@ public:
     bool StopCapture(unsigned int timeoutSeconds = 10);
     bool Loop(unsigned int timeoutSeconds = 10);
     bool PixelScale(double *result);
-    bool ConnectGear(const char *profileName);
-    bool DisconnectGear();
+    bool GetEquipmentProfiles(std::vector<std::string> *profiles);
+    bool ConnectEquipment(const char *profileName);
+    bool DisconnectEquipment();
     bool GetStatus(std::string *appState, double *avgDist);
     bool IsGuiding(bool *result);
     bool Pause();

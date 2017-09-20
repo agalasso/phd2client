@@ -344,7 +344,7 @@ class Guider::Impl
 
     std::string Error;
 
-    Impl(const char *hostname, unsigned int phd2_instance = 1);
+    Impl(const char *hostname, unsigned int phd2_instance);
     ~Impl();
 
     bool Connect();
@@ -361,8 +361,9 @@ class Guider::Impl
     bool StopCapture(unsigned int timeoutSeconds = 10);
     bool Loop(unsigned int timeoutSeconds = 10);
     bool PixelScale(double *result);
-    bool ConnectGear(const char *profileName);
-    bool DisconnectGear();
+    bool GetEquipmentProfiles(std::vector<std::string> *profiles);
+    bool ConnectEquipment(const char *profileName);
+    bool DisconnectEquipment();
     bool GetStatus(std::string *appState, double *avgDist);
     bool IsGuiding(bool *result);
     bool Pause();
@@ -905,11 +906,26 @@ bool Guider::Impl::PixelScale(double *result)
     return true;
 }
 
-bool Guider::Impl::ConnectGear(const char *profileName)
+bool Guider::Impl::GetEquipmentProfiles(std::vector<std::string> *profiles)
 {
-    if (!Connect())
+    Json::Value res = Call("get_profiles");
+    if (failed(res))
         return false;
 
+    profiles->clear();
+
+    Json::Value ary = res["result"];
+    for (auto p : ary)
+    {
+        std::string name = p["name"].asString();
+        profiles->push_back(name);
+    }
+
+    return true;
+}
+
+bool Guider::Impl::ConnectEquipment(const char *profileName)
+{
     Json::Value res = Call("get_profile");
     if (failed(res))
         return false;
@@ -955,7 +971,7 @@ bool Guider::Impl::ConnectGear(const char *profileName)
     return !failed(res);
 }
 
-bool Guider::Impl::DisconnectGear()
+bool Guider::Impl::DisconnectEquipment()
 {
     if (!StopCapture())
         return false;
@@ -1078,14 +1094,19 @@ bool Guider::PixelScale(double *result)
     return m_rep->PixelScale(result);
 }
 
-bool Guider::ConnectGear(const char *profileName)
+bool Guider::GetEquipmentProfiles(std::vector<std::string> *profiles)
 {
-    return m_rep->ConnectGear(profileName);
+    return m_rep->GetEquipmentProfiles(profiles);
 }
 
-bool Guider::DisconnectGear()
+bool Guider::ConnectEquipment(const char *profileName)
 {
-    return m_rep->DisconnectGear();
+    return m_rep->ConnectEquipment(profileName);
+}
+
+bool Guider::DisconnectEquipment()
+{
+    return m_rep->DisconnectEquipment();
 }
 
 bool Guider::GetStatus(std::string *appState, double *avgDist)

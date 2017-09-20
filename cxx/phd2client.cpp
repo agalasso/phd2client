@@ -58,19 +58,32 @@ int main(int argc, char *argv[])
 
     Guider guider(host);
 
-    // connect to phd2 and connect phd2 equipment in profile "Simulator"
-
-    const char *profile = "Simulator";
-    printf("connect profile %s\n", profile);
-
-    if (!guider.ConnectGear(profile))
-    {
-        fprintf(stderr, "Could not connect gear: %s\n", guider.LastError().c_str());
-        return 1;
-    }
-
     try
     {
+        // connect to PHD2
+
+        if (!guider.Connect())
+            throw guider.LastError();
+
+        // get the list of euipment profiles
+
+        std::vector<std::string> profiles;
+        if (!guider.GetEquipmentProfiles(&profiles))
+            throw guider.LastError();
+
+        for (auto p : profiles)
+        {
+            printf("profile: %s\n", p.c_str());
+        }
+
+        // connect equipment in profile "Simulator"
+
+        const char *profile = "Simulator";
+        printf("connect profile %s\n", profile);
+
+        if (!guider.ConnectEquipment(profile))
+            throw guider.LastError();
+
         // start guiding
 
         double settlePixels = 2.0;
@@ -132,5 +145,5 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    //exit(0); // avoid joining the worker thread
+    return 0;
 }
