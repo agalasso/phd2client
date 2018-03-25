@@ -1,5 +1,5 @@
 # phd2client
-Sample client code for PHD2 server API
+Sample client code for PHD2 server API - C++ and C# versions.  If you need a different language binding please let me know.
 
 ### C++
 
@@ -30,7 +30,7 @@ ok = guider.Guide(2.0, 10.0, 100.0);
 
 See [phd2client.cpp](https://github.com/agalasso/phd2client/blob/master/cxx/phd2client.cpp) for a more complete example.
 
-### C#
+### C# (.NET)
 
 ```C#
 using guider;
