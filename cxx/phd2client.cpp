@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         if (!guider.Connect())
             throw guider.LastError();
 
-        // get the list of euipment profiles
+        // get the list of equipment profiles
 
         std::vector<std::string> profiles;
         if (!guider.GetEquipmentProfiles(&profiles))
