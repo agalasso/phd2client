@@ -667,7 +667,7 @@ bool Guider::Impl::Guide(double settlePixels, double settleTime, double settleTi
         s->SettleTime = settleTime;
         s->Status = 0;
         std::unique_lock<decltype(m_mutex)> _lock(m_mutex);
-        if (mSettle)
+        if (mSettle && !mSettle->Done)
         {
             Error = "cannot guide while settling";
             return false;
@@ -708,7 +708,7 @@ bool Guider::Impl::Dither(double ditherPixels, double settlePixels, double settl
         s->SettleTime = settleTime;
         s->Status = 0;
         std::unique_lock<decltype(m_mutex)> _lock(m_mutex);
-        if (mSettle)
+        if (mSettle && !mSettle->Done)
         {
             Error = "cannot dither while settling";
             return false;
