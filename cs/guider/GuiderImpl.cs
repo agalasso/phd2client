@@ -403,7 +403,7 @@ namespace guider
         {
             return res.ContainsKey("error");
         }
-    
+
         public GuiderImpl(string hostname, uint phd2_instance)
         {
             m_host = hostname;
@@ -533,7 +533,7 @@ namespace guider
 
             lock (m_sync)
             {
-                if (mSettle != null)
+                if (mSettle != null && !mSettle.Done)
                     throw new GuiderException("cannot guide while settling");
                 mSettle = s;
             }
@@ -574,7 +574,7 @@ namespace guider
 
             lock (m_sync)
             {
-                if (mSettle != null)
+                if (mSettle != null && !mSettle.Done)
                     throw new GuiderException("cannot dither while settling");
 
                 mSettle = s;
