@@ -568,9 +568,6 @@ void Guider::Impl::Worker()
             continue;
         }
 
-        std::ostringstream os;
-        os << j;
-
         if (j.isMember("jsonrpc"))
         {
             // a response
