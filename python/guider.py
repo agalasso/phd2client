@@ -106,10 +106,14 @@ class _Conn:
                     break
             #print("DBG: call recv")
             s = self.sock.recv(4096)
-            #print(f"DBG: recvd: {len(s)}: {s}")
+            received = len(s)
+            #print(f"DBG: recvd: {received}: {s}")
+            if received == 0:
+                self.Disconnect()
+                raise RuntimeError("socket connection broken")
             i0 = 0
             i = i0
-            while i < len(s):
+            while i < received:
                 if s[i] == b'\r'[0] or s[i] == b'\n'[0]:
                     self.buf += s[i0 : i]
                     if self.buf:
@@ -128,6 +132,7 @@ class _Conn:
         while totsent < len(b):
             sent = self.sock.send(b[totsent:])
             if sent == 0:
+                self.Disconnect()
                 raise RuntimeError("socket connection broken")
             totsent += sent
 
@@ -139,7 +144,7 @@ class Guider:
 
     DEFAULT_STOPCAPTURE_TIMEOUT = 10
 
-    def __init__(self, hostname = "localhost", instance = 1):
+    def __init__(self, hostname = "localhost", instance = 1, eventListener = None):
         self.hostname = hostname
         self.instance = instance
         self.conn = None
@@ -158,6 +163,7 @@ class Guider:
         self.accum_dec = _Accum()
         self.Stats = GuideStats()
         self.Settle = None
+        self.eventListener = None if eventListener is None else eventListener
 
     def __enter__(self):
         return self
@@ -252,7 +258,13 @@ class Guider:
         
     def _worker(self):
         while not self.terminate:
-            line = self.conn.ReadLine()
+            try:
+                line = self.conn.ReadLine()
+            except:
+                # socket disconnected
+                #print("DBG: socket disconnected")
+                self.terminate = True
+                continue
             #print(f"DBG: L: {line}")
             if not line:
                 if not self.terminate:
@@ -274,6 +286,8 @@ class Guider:
                     self.cond.notify()
             else:
                 self._handle_event(j)
+                if self.eventListener is not None:
+                    self.eventListener(j)
 
     def Connect(self):
         """connect to PHD2 -- call Connect before calling any of the server API methods below"""
@@ -303,6 +317,11 @@ class Guider:
             self.conn.Disconnect()
             self.conn = None
         #print("DBG: disconnect done")
+
+    def IsConnected(self):
+        if self.conn is not None:
+            return self.conn.IsConnected()
+        return False
 
     @staticmethod
     def _make_jsonrpc(method, params):
