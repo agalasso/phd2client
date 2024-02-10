@@ -502,9 +502,9 @@ class Guider:
             if self.AppState == "Looping":
                 return
         res = self.Call("get_exposure")
-        exp = res["result"]
+        exp_ms = res["result"]
         self.Call("loop")
-        time.sleep(exp)
+        time.sleep(exp_ms / 1000)
         for i in range(0, timeoutSeconds):
             with self.lock:
                 if self.AppState == "Looping":
