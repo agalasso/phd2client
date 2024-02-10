@@ -574,11 +574,10 @@ class Guider:
         """un-pause guiding"""
         self.Call("set_paused", False)
 
-    def SaveImage(self, filename):
-        """save the current guide camera frame (FITS format), returning the
-        name of the file in *filename.  The caller will need to remove
-        the file when done.
-
+    def SaveImage(self):
+        """
+        Save the current guide camera frame (FITS format), returning the name of the
+        file.  The caller will need to remove the file when done.
         """
         res = self.Call("save_image")
         return res["result"]["filename"]
