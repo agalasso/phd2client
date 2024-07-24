@@ -683,7 +683,10 @@ namespace guider
             GuideStats stats;
             lock (m_sync)
             {
-                stats = Stats.Clone();
+                if (Stats != null)
+                    stats = Stats.Clone();
+                else
+                    stats = new GuideStats();
             }
             stats.rms_tot = Math.Sqrt(stats.rms_ra * stats.rms_ra + stats.rms_dec * stats.rms_dec);
             return stats;
