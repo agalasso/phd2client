@@ -2,11 +2,13 @@
 Sample PHD2 python client demo
 """
 
-from guider import Guider
 import sys
 import time
 
-def WaitForSettleDone(guider):
+from guider import Guider
+
+
+def WaitForSettleDone(guider: Guider):
     while True:
         s = guider.CheckSettling()
         if s.Done:
@@ -14,70 +16,75 @@ def WaitForSettleDone(guider):
                 raise Exception(s.Error)
             print("settling is done")
             break
-        print(f"settling dist {s.Distance:.1f}/{s.SettlePx:.1f} time {s.Time:.1f}/{s.SettleTime:.1f}")
+        print(
+            f"settling dist {s.Distance:.1f}/{s.SettlePx:.1f} time {s.Time:.1f}/{s.SettleTime:.1f}"
+        )
         time.sleep(1)
 
-# ==== main ====
 
-host = "localhost"
-if len(sys.argv) > 1:
-    host = sys.argv[1]
+def main():
+    host = "localhost"
+    if len(sys.argv) > 1:
+        host = sys.argv[1]
 
-with Guider(host) as guider:
+    with Guider(host) as guider:
+        guider.Connect()
 
-    guider.Connect()
+        # get the list of equipment profiles
 
-    # get the list of equipment profiles
+        profiles = guider.GetEquipmentProfiles()
 
-    profiles = guider.GetEquipmentProfiles()
+        for p in profiles:
+            print(f"profile: {p}")
 
-    for p in profiles:
-        print(f"profile: {p}")
+        # connect equipment in profile "Simulator"
 
-    # connect equipment in profile "Simulator"
+        profile = "Simulator"
+        print(f"connect profile {profile}")
 
-    profile = "Simulator"
-    print(f"connect profile {profile}")
+        guider.ConnectEquipment(profile)
 
-    guider.ConnectEquipment(profile)
+        # start guiding
 
-    # start guiding
+        settlePixels = 2.0
+        settleTime = 10.0
+        settleTimeout = 100.0
 
-    settlePixels = 2.0
-    settleTime = 10.0
-    settleTimeout = 100.0
+        print("guide")
 
-    print("guide")
+        guider.Guide(settlePixels, settleTime, settleTimeout)
 
-    guider.Guide(settlePixels, settleTime, settleTimeout)
+        # wait for settling to complete
 
-    # wait for settling to complete
+        WaitForSettleDone(guider)
 
-    WaitForSettleDone(guider)
+        # monitor guiding for a little while
 
-    # monitor guiding for a little while
+        for _ in range(0, 20):
+            stats = guider.GetStats()
+            state, avgDist = guider.GetStatus()
+            print(
+                f"{state} dist={avgDist:.1f} rms={stats.rms_tot:.1f} ({stats.rms_ra:.1f}, "
+                f"{stats.rms_dec:.1f}) peak = {stats.peak_ra:.1f}, {stats.peak_dec:.1f}"
+            )
+            time.sleep(1)
 
-    for i in range (0, 20):
-        stats = guider.GetStats()
-        state, avgDist = guider.GetStatus()
-        print(f"{state} dist={avgDist:.1f} rms={stats.rms_tot:.1f} ({stats.rms_ra:.1f}, "
-              f"{stats.rms_dec:.1f}) peak = {stats.peak_ra:.1f}, {stats.peak_dec:.1f}")
-        time.sleep(1)
+        # dither
 
-    # dither
+        ditherPixels = 3.0
+        print("dither")
+        guider.Dither(ditherPixels, settlePixels, settleTime, settleTimeout)
 
-    ditherPixels = 3.0
-    print("dither")
-    guider.Dither(ditherPixels, settlePixels, settleTime, settleTimeout)
+        # wait for settle
 
-    # wait for settle
+        WaitForSettleDone(guider)
 
-    WaitForSettleDone(guider)
+        # stop guiding
 
-    # stop guiding
+        print("stop")
 
-    print("stop")
+        guider.StopCapture()
 
-    guider.StopCapture()
 
-    sys.exit(0)
+if __name__ == "__main__":
+    main()
