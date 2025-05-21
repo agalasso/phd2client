@@ -164,6 +164,21 @@ class _Conn:
         self.terminate = True
 
 
+@dataclass
+class Subframe:
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+@dataclass
+class SingleFrameResult:
+    success: bool
+    error_message: str | None
+    path: str | None
+
+
 @dataclass(init=False)
 class Guider:
     """The main class for interacting with PHD2"""
@@ -188,6 +203,7 @@ class Guider:
     accum_dec = _Accum()
     Stats = GuideStats()
     Settle: SettleProgress | None = None
+    single_frame: SingleFrameResult | None = None
 
     def __init__(
         self, hostname: str = "localhost", instance: int = 1, connect: bool = False
@@ -291,6 +307,14 @@ class Guider:
             with self.lock:
                 self.AppState = "LostLock"
                 self.AvgDist = ev["AvgDist"]
+        elif e == "SingleFrameComplete":
+            result = SingleFrameResult(
+                success=ev["Success"],
+                error_message=ev.get("Error"),
+                path=ev.get("Path"),
+            )
+            with self.lock:
+                self.single_frame = result
         else:
             # print(f"DBG: todo: handle event {e}")
             pass
@@ -654,3 +678,40 @@ class Guider:
         Terminate PHD2
         """
         self.Call("shutdown")
+
+    def CaptureSingleFrame(
+        self,
+        *,
+        exposure: int | None = None,
+        binning: int | None = None,
+        gain: int | None = None,
+        roi: Subframe | None = None,
+        path: str | None = None,
+        save: bool | None = None,
+    ):
+        if path is not None and save is False:
+            raise ValueError(
+                "invalid arguments: when save is False, the path argument should be omitted"
+            )
+        params: dict[str, Any] = {}
+        if exposure is not None:
+            params["exposure"] = exposure
+        if binning is not None:
+            params["binning"] = binning
+        if gain is not None:
+            params["gain"] = gain
+        if roi is not None:
+            params["subframe"] = [roi.x, roi.y, roi.width, roi.height]
+        if path is not None:
+            params["path"] = path
+        if save is not None:
+            params["save"] = save
+        with self.lock:
+            self.single_frame = None
+        self.Call("capture_single_frame", params)
+
+    def CheckSingleFrame(self) -> SingleFrameResult | None:
+        with self.lock:
+            result = self.single_frame
+            self.single_frame = None
+        return result
