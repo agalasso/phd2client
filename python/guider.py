@@ -189,9 +189,13 @@ class Guider:
     Stats = GuideStats()
     Settle: SettleProgress | None = None
 
-    def __init__(self, hostname: str = "localhost", instance: int = 1):
+    def __init__(
+        self, hostname: str = "localhost", instance: int = 1, connect: bool = False
+    ):
         self.hostname = hostname
         self.instance = instance
+        if connect:
+            self.Connect()
 
     def __enter__(self) -> Self:
         return self
