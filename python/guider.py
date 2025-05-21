@@ -644,3 +644,9 @@ class Guider:
         """
         res = self.Call("save_image")
         return res["result"]["filename"]
+
+    def Shutdown(self):
+        """
+        Terminate PHD2
+        """
+        self.Call("shutdown")
