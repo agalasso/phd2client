@@ -576,6 +576,11 @@ class Guider:
         res = self.Call("get_pixel_scale")
         return res["result"]
 
+    def GetExposure(self) -> int:
+        """get the current exposure duration in milliseconds"""
+        res = self.Call("get_exposure")
+        return res["result"]
+
     def GetEquipmentProfiles(self):
         """get a list of the Equipment Profile names"""
         res = self.Call("get_profiles")
