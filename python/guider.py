@@ -1,51 +1,72 @@
 import copy
+import dataclasses
 import json
 import math
 import selectors
 import socket
 import threading
 import time
+from dataclasses import dataclass
+from types import TracebackType
+from typing import Any, ClassVar, Self
 
+
+@dataclass
 class SettleProgress:
-    """Info related to progress of settling after guiding starts or after
-    a dither
-
     """
-    def __init__(self):
-        self.Done = False
-        self.Distance = 0.0
-        self.SettlePx = 0.0
-        self.Time = 0.0
-        self.SettleTime = 0.0
-        self.Status = 0
-        self.Error = ''
+    Info related to progress of settling after guiding starts or after a dither
+    """
 
+    Done: bool = False
+    Distance: float = 0
+    SettlePx: float = 0
+    Time: float = 0
+    SettleTime: float = 0
+    Status: int = 0
+    Error: str | None = None
+
+
+@dataclass
 class GuideStats:
-    """cumulative guide stats since guiding started and settling
-    completed
-
     """
-    def __init__(self):
-        self.rms_tot = 0.0
-        self.rms_ra = 0.0
-        self.rms_dec = 0.0
-        self.peak_ra = 0.0
-        self.peak_dec = 0.0
+    Cumulative guide stats since guiding started and settling completed
+    """
+
+    rms_tot: float = 0
+    rms_ra: float = 0
+    rms_dec: float = 0
+    peak_ra: float = 0
+    peak_dec: float = 0
+
 
 class GuiderException(Exception):
-    """GuiderException is the base class for any excettions raied by the
-    Guider methods
-
     """
+    GuiderException is the base class for any exceptions raised by the Guider methods
+    """
+
     pass
 
+
+class NotConnectedError(GuiderException):
+    def __init__(self) -> None:
+        super().__init__("not connected")
+
+
+@dataclass(init=False)
 class _Accum:
+    n: int
+    a: float
+    q: float
+    peak: float
+
     def __init__(self):
         self.Reset()
+
     def Reset(self):
         self.n = 0
         self.a = self.q = self.peak = 0
-    def Add(self, x):
+
+    def Add(self, x: float):
         ax = abs(x)
         if ax > self.peak:
             self.peak = ax
@@ -53,25 +74,29 @@ class _Accum:
         d = x - self.a
         self.a += d / self.n
         self.q += (x - self.a) * d
+
     def Mean(self):
         return self.a
+
     def Stdev(self):
         return math.sqrt(self.q / self.n) if self.n >= 1 else 0.0
+
     def Peak(self):
         return self.peak
 
+
+@dataclass
 class _Conn:
-    def __init__(self):
-        self.lines = []
-        self.buf = b''
-        self.sock = None
-        self.sel = None
-        self.terminate = False
+    lines: list[bytes] = dataclasses.field(default_factory=list[bytes])
+    buf: bytes = b""
+    sock: socket.socket | None = None
+    sel: Any | None = None
+    terminate: bool = False
 
     def __del__(self):
-        self.Disconnect()
+        self.close()
 
-    def Connect(self, hostname, port):
+    def Connect(self, hostname: str, port: int):
         self.sock = socket.socket()
         try:
             self.sock.connect((hostname, port))
@@ -83,9 +108,10 @@ class _Conn:
             self.sock = None
             raise
 
-    def Disconnect(self):
+    def close(self):
         if self.sel is not None:
-            self.sel.unregister(self.sock)
+            if self.sock:
+                self.sel.unregister(self.sock)
             self.sel = None
         if self.sock is not None:
             self.sock.close()
@@ -95,34 +121,37 @@ class _Conn:
         return self.sock is not None
 
     def ReadLine(self):
-        #print(f"DBG: ReadLine enter lines:{len(self.lines)}")
+        assert self.sock is not None
+        assert self.sel is not None
+        # print(f"DBG: ReadLine enter lines:{len(self.lines)}")
         while not self.lines:
-            #print("DBG: begin wait")
+            # print("DBG: begin wait")
             while True:
                 if self.terminate:
-                    return ''
+                    return ""
                 events = self.sel.select(0.5)
                 if events:
                     break
-            #print("DBG: call recv")
+            # print("DBG: call recv")
             s = self.sock.recv(4096)
-            #print(f"DBG: recvd: {len(s)}: {s}")
+            # print(f"DBG: recvd: {len(s)}: {s}")
             i0 = 0
             i = i0
             while i < len(s):
-                if s[i] == b'\r'[0] or s[i] == b'\n'[0]:
-                    self.buf += s[i0 : i]
+                if s[i] == b"\r"[0] or s[i] == b"\n"[0]:
+                    self.buf += s[i0:i]
                     if self.buf:
                         self.lines.append(self.buf)
-                        self.buf = b''
+                        self.buf = b""
                     i += 1
                     i0 = i
                 else:
                     i += 1
-            self.buf += s[i0 : i]
+            self.buf += s[i0:i]
         return self.lines.pop(0)
 
-    def WriteLine(self, s):
+    def WriteLine(self, s: str):
+        assert self.sock is not None
         b = s.encode()
         totsent = 0
         while totsent < len(b):
@@ -134,43 +163,53 @@ class _Conn:
     def Terminate(self):
         self.terminate = True
 
+
+@dataclass(init=False)
 class Guider:
     """The main class for interacting with PHD2"""
 
-    DEFAULT_STOPCAPTURE_TIMEOUT = 10
+    DEFAULT_STOPCAPTURE_TIMEOUT: ClassVar[float] = 10
 
-    def __init__(self, hostname = "localhost", instance = 1):
+    hostname: str
+    instance: int
+    conn: _Conn | None = None
+    terminate: bool = False
+    worker: threading.Thread | None = None
+    lock = threading.Lock()
+    cond = threading.Condition()
+    response: dict[str, Any] | None = None
+    AppState: str = ""
+    AvgDist: float = 0
+    Version: str = ""
+    PHDSubver: str = ""
+    accum_active: bool = False
+    settle_px: float = 0
+    accum_ra = _Accum()
+    accum_dec = _Accum()
+    Stats = GuideStats()
+    Settle: SettleProgress | None = None
+
+    def __init__(self, hostname: str = "localhost", instance: int = 1):
         self.hostname = hostname
         self.instance = instance
-        self.conn = None
-        self.terminate = False
-        self.worker = None
-        self.lock = threading.Lock()
-        self.cond = threading.Condition()
-        self.response = None
-        self.AppState = ''
-        self.AvgDist = 0
-        self.Version = ''
-        self.PHDSubver = ''
-        self.accum_active = False
-        self.settle_px = 0
-        self.accum_ra = _Accum()
-        self.accum_dec = _Accum()
-        self.Stats = GuideStats()
-        self.Settle = None
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        __exc_type: type[BaseException] | None,
+        __exc_value: BaseException | None,
+        __traceback: TracebackType | None,
+    ) -> bool | None:
         self.Disconnect()
 
     @staticmethod
-    def _is_guiding(st):
+    def _is_guiding(st: str):
         return st == "Guiding" or st == "LostLock"
 
     @staticmethod
-    def _accum_get_stats(ra, dec):
+    def _accum_get_stats(ra: _Accum, dec: _Accum):
         stats = GuideStats()
         stats.rms_ra = ra.Stdev()
         stats.rms_dec = dec.Stdev()
@@ -178,7 +217,7 @@ class Guider:
         stats.peak_dec = dec.Peak()
         return stats
 
-    def _handle_event(self, ev):
+    def _handle_event(self, ev: dict[str, Any]):
         e = ev["Event"]
         if e == "AppState":
             with self.lock:
@@ -205,9 +244,11 @@ class Guider:
                 self.AppState = "Guiding"
                 self.AvgDist = ev["AvgDist"]
                 if self.accum_active:
-                    self.Stats = stats
+                    self.Stats = stats  # type: ignore
         elif e == "SettleBegin":
-            self.accum_active = False  # exclude GuideStep messages from stats while settling
+            self.accum_active = (
+                False  # exclude GuideStep messages from stats while settling
+            )
         elif e == "Settling":
             s = SettleProgress()
             s.Done = False
@@ -247,28 +288,29 @@ class Guider:
                 self.AppState = "LostLock"
                 self.AvgDist = ev["AvgDist"]
         else:
-            #print(f"DBG: todo: handle event {e}")
+            # print(f"DBG: todo: handle event {e}")
             pass
-        
+
     def _worker(self):
+        assert self.conn is not None
         while not self.terminate:
             line = self.conn.ReadLine()
-            #print(f"DBG: L: {line}")
+            # print(f"DBG: L: {line}")
             if not line:
                 if not self.terminate:
                     # server disconnected
-                    #print("DBG: server disconnected")
+                    # print("DBG: server disconnected")
                     pass
                 break
             try:
                 j = json.loads(line)
             except json.JSONDecodeError:
                 # ignore invalid json
-                #print("DBG: ignoring invalid json response")
+                # print("DBG: ignoring invalid json response")
                 continue
             if "jsonrpc" in j:
                 # a response
-                #print(f"DBG: R: {line}\n")
+                # print(f"DBG: R: {line}\n")
                 with self.cond:
                     self.response = j
                     self.cond.notify()
@@ -284,7 +326,7 @@ class Guider:
             self.terminate = False
             self.worker = threading.Thread(target=self._worker)
             self.worker.start()
-            #print("DBG: connect done")
+            # print("DBG: connect done")
         except Exception:
             self.Disconnect()
             raise
@@ -293,43 +335,43 @@ class Guider:
         """disconnect from PHD2"""
         if self.worker is not None:
             if self.worker.is_alive():
-                #print("DBG: terminating worker")
+                # print("DBG: terminating worker")
                 self.terminate = True
-                self.conn.Terminate()
-                #print("DBG: joining worker")
+                if self.conn is not None:
+                    self.conn.Terminate()
+                # print("DBG: joining worker")
                 self.worker.join()
             self.worker = None
         if self.conn is not None:
-            self.conn.Disconnect()
+            self.conn.close()
             self.conn = None
-        #print("DBG: disconnect done")
+        # print("DBG: disconnect done")
 
     @staticmethod
-    def _make_jsonrpc(method, params):
-        req = {
-            "method": method,
-            "id": 1
-        }
+    def _make_jsonrpc(method: str, params: Any):
+        req: dict[str, Any] = {"method": method, "id": 1}
         if params is not None:
             if isinstance(params, (list, dict)):
                 req["params"] = params
             else:
                 # single non-null parameter
-                req["params"] = [ params ]
-        return json.dumps(req,separators=(',', ':'))
+                req["params"] = [params]
+        return json.dumps(req, separators=(",", ":"))
 
     @staticmethod
-    def _failed(res):
+    def _failed(res: dict[str, Any]):
         return "error" in res
 
-    def Call(self, method, params = None):
+    def Call(self, method: str, params: Any = None):
         """this function can be used for raw JSONRPC method
         invocation. Generally you won't need to use this as it is much
         more convenient to use the higher-level methods below
 
         """
+        if self.conn is None:
+            raise NotConnectedError
         s = self._make_jsonrpc(method, params)
-        #print(f"DBG: Call: {s}")
+        # print(f"DBG: Call: {s}")
         # send request
         self.conn.WriteLine(s + "\r\n")
         # wait for response
@@ -343,10 +385,12 @@ class Guider:
         return response
 
     def _CheckConnected(self):
+        if not self.conn:
+            raise NotConnectedError
         if not self.conn.IsConnected():
             raise GuiderException("PHD2 Server disconnected")
 
-    def Guide(self, settlePixels, settleTime, settleTimeout):
+    def Guide(self, settlePixels: float, settleTime: float, settleTimeout: float):
         """Start guiding with the given settling parameters. PHD2 takes care
         of looping exposures, guide star selection, and settling. Call
         CheckSettling() periodically to see when settling is complete.
@@ -369,12 +413,12 @@ class Guider:
                 "guide",
                 [
                     {
-                        "pixels" : settlePixels,
+                        "pixels": settlePixels,
                         "time": settleTime,
                         "timeout": settleTimeout,
                     },
-                    False, # don't force calibration
-                ]
+                    False,  # don't force calibration
+                ],
             )
             self.settle_px = settlePixels
         except Exception:
@@ -382,7 +426,13 @@ class Guider:
                 self.Settle = None
             raise
 
-    def Dither(self, ditherPixels, settlePixels, settleTime, settleTimeout):
+    def Dither(
+        self,
+        ditherPixels: float,
+        settlePixels: float,
+        settleTime: float,
+        settleTimeout: float,
+    ):
         """Dither guiding with the given dither amount and settling parameters. Call CheckSettling()
         periodically to see when settling is complete.
         """
@@ -405,11 +455,11 @@ class Guider:
                     ditherPixels,
                     False,
                     {
-                        "pixels" : settlePixels,
+                        "pixels": settlePixels,
                         "time": settleTime,
                         "timeout": settleTimeout,
                     },
-                ]
+                ],
             )
             self.settle_px = settlePixels
         except Exception:
@@ -474,15 +524,18 @@ class Guider:
         stats.rms_tot = math.hypot(stats.rms_ra, stats.rms_dec)
         return stats
 
-    def StopCapture(self, timeoutSeconds = 10):
+    def StopCapture(self, timeoutSeconds: float = 10):
         """stop looping and guiding"""
         self.Call("stop_capture")
-        for i in range(0, timeoutSeconds):
+        deadline = time.monotonic() + timeoutSeconds
+        while True:
             with self.lock:
                 if self.AppState == "Stopped":
                     return
             time.sleep(1)
             self._CheckConnected()
+            if time.monotonic() > deadline:
+                break
         # hack! workaround bug where PHD2 sends a GuideStep after stop
         # request and fails to send GuidingStopped
         res = self.Call("get_app_state")
@@ -492,9 +545,11 @@ class Guider:
         if st == "Stopped":
             return
         # end workaround
-        raise GuiderException(f"guider did not stop capture after {timeoutSeconds} seconds!")
+        raise GuiderException(
+            f"guider did not stop capture after {timeoutSeconds} seconds!"
+        )
 
-    def Loop(self, timeoutSeconds = 10):
+    def Loop(self, timeoutSeconds: float = 10):
         """start looping exposures"""
         self._CheckConnected()
         # already looping?
@@ -504,13 +559,16 @@ class Guider:
         res = self.Call("get_exposure")
         exp_ms = res["result"]
         self.Call("loop")
+        deadline = time.monotonic() + timeoutSeconds
         time.sleep(exp_ms / 1000)
-        for i in range(0, timeoutSeconds):
+        while True:
             with self.lock:
                 if self.AppState == "Looping":
                     return
             time.sleep(1)
             self._CheckConnected()
+            if time.monotonic() > deadline:
+                break
         raise GuiderException("timed-out waiting for guiding to start looping")
 
     def PixelScale(self):
@@ -521,12 +579,12 @@ class Guider:
     def GetEquipmentProfiles(self):
         """get a list of the Equipment Profile names"""
         res = self.Call("get_profiles")
-        profiles = []
+        profiles: list[str] = []
         for p in res["result"]:
             profiles.append(p["name"])
         return profiles
 
-    def ConnectEquipment(self, profileName):
+    def ConnectEquipment(self, profileName: str):
         """connect the equipment in an equipment profile"""
         res = self.Call("get_profile")
         prof = res["result"]
@@ -563,7 +621,7 @@ class Guider:
 
     def IsGuiding(self):
         """check if currently guiding"""
-        st, dist = self.GetStatus()
+        st, _ = self.GetStatus()
         return self._is_guiding(st)
 
     def Pause(self):
