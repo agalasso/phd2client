@@ -1,0 +1,14 @@
+[project]
+name = "phd2client"
+version = "0.1.0"
+description = "PHD2 event server API client"
+readme = "README.md"
+authors = [
+    { name = "Andy Galasso", email = "andy.galasso@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.7.8,<0.8"]
+build-backend = "uv_build"

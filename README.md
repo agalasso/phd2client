@@ -6,7 +6,7 @@ Sample client code for PHD2 server API - C++, C#, and python versions.  If you n
 dependencies:
   * [jsoncpp](https://github.com/open-source-parsers/jsoncpp)
   * [libcurl](https://curl.haxx.se/libcurl/)
-  
+
 ```C++
 #include "guider.h"
 
@@ -62,14 +62,11 @@ See [SampleClient.cs](https://github.com/agalasso/phd2client/blob/master/cs/PHD2
 ### python
 
 ```python
-from guider import Guider, GuiderException
+from phd2client.guider import Guider, GuiderException
 
 ...
-    with Guider("localhost") as guider:
+    with Guider("localhost", connect=True) as guider:
         try:
-            # connect to PHD2
-            guider.Connect()
-
             # connect equipment in profile "Simulator"
             guider.ConnectEquipment("Simulator")
 
@@ -79,4 +76,4 @@ from guider import Guider, GuiderException
             print(f"Guider Error: {ex}")
 ```
 
-See [phd2client.py](https://github.com/agalasso/phd2client/blob/master/python/phd2client.py) for a more complete example.
+See [phd2client.py](https://github.com/agalasso/phd2client/blob/master/python/examples/phd2client.py) for a more complete example.
