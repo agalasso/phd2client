@@ -1,6 +1,6 @@
 [project]
 name = "phd2client"
-version = "0.1.2"
+version = "0.2.0"
 description = "PHD2 event server API client"
 readme = "README.md"
 license = "MIT"

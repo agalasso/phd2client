@@ -1,3 +1,7 @@
+### 0.2.0
+
+- python: GuiderException renamed to GuiderError
+
 ### 0.1.2
 
 - Fix project metadata for PyPI
