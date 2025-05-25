@@ -39,15 +39,15 @@ class GuideStats:
     peak_dec: float = 0
 
 
-class GuiderException(Exception):
+class GuiderError(Exception):
     """
-    GuiderException is the base class for any exceptions raised by the Guider methods
+    GuiderError is the base class for any exceptions raised by the Guider methods
     """
 
     pass
 
 
-class NotConnectedError(GuiderException):
+class NotConnectedError(GuiderError):
     def __init__(self) -> None:
         super().__init__("not connected")
 
@@ -385,14 +385,14 @@ class Guider:
             response = self.response
             self.response = None
         if self._failed(response):
-            raise GuiderException(response["error"]["message"])
+            raise GuiderError(response["error"]["message"])
         return response
 
     def _CheckConnected(self):
         if not self.conn:
             raise NotConnectedError
         if not self.conn.IsConnected():
-            raise GuiderException("PHD2 Server disconnected")
+            raise GuiderError("PHD2 Server disconnected")
 
     def Guide(self, settlePixels: float, settleTime: float, settleTimeout: float):
         """Start guiding with the given settling parameters. PHD2 takes care
@@ -410,7 +410,7 @@ class Guider:
         s.Status = 0
         with self.lock:
             if self.Settle and not self.Settle.Done:
-                raise GuiderException("cannot guide while settling")
+                raise GuiderError("cannot guide while settling")
             self.Settle = s
         try:
             self.Call(
@@ -450,7 +450,7 @@ class Guider:
         s.Status = 0
         with self.lock:
             if self.Settle and not self.Settle.Done:
-                raise GuiderException("cannot dither while settling")
+                raise GuiderError("cannot dither while settling")
             self.Settle = s
         try:
             self.Call(
@@ -501,7 +501,7 @@ class Guider:
         ret = SettleProgress()
         with self.lock:
             if not self.Settle:
-                raise GuiderException("not settling")
+                raise GuiderError("not settling")
             if self.Settle.Done:
                 # settle is done
                 ret.Done = True
@@ -549,7 +549,7 @@ class Guider:
         if st == "Stopped":
             return
         # end workaround
-        raise GuiderException(
+        raise GuiderError(
             f"guider did not stop capture after {timeoutSeconds} seconds!"
         )
 
@@ -573,7 +573,7 @@ class Guider:
             self._CheckConnected()
             if time.monotonic() > deadline:
                 break
-        raise GuiderException("timed-out waiting for guiding to start looping")
+        raise GuiderError("timed-out waiting for guiding to start looping")
 
     def PixelScale(self):
         """get the guider pixel scale in arc-seconds per pixel"""
@@ -607,7 +607,7 @@ class Guider:
                     profid = p.get("id", -1)
                     break
             if profid == -1:
-                raise GuiderException(f"invalid phd2 profile name: {profileName}")
+                raise GuiderError(f"invalid phd2 profile name: {profileName}")
             self.StopCapture(self.DEFAULT_STOPCAPTURE_TIMEOUT)
             self.Call("set_connected", False)
             self.Call("set_profile", profid)
