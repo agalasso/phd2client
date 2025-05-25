@@ -1,6 +1,6 @@
 [project]
 name = "phd2client"
-version = "0.1.1"
+version = "0.1.2"
 description = "PHD2 event server API client"
 readme = "README.md"
 license = "MIT"
@@ -24,7 +24,7 @@ Homepage = "https://github.com/agalasso/phd2client/tree/master/python"
 Documentation = "https://github.com/OpenPHDGuiding/phd2/wiki/EventMonitoring"
 Repository = "https://github.com/agalasso/phd2client"
 Issues = "https://github.com/agalasso/phd2client/issues"
-Changelog = "https://github.com/agalasso/phd2clientblob/master/python/CHANGELOG.md"
+Changelog = "https://github.com/agalasso/phd2client/blob/master/python/CHANGELOG.md"
 
 [build-system]
 requires = ["uv_build>=0.7.8,<0.8"]
