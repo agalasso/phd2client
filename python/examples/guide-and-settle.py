@@ -1,3 +1,9 @@
+#!/usr/bin/env -S uv --quiet run --script
+# /// script
+# dependencies = [
+#   "phd2client",
+# ]
+# ///
 """
 Sample PHD2 python client demo
 """
@@ -5,7 +11,7 @@ Sample PHD2 python client demo
 import sys
 import time
 
-from guider import Guider
+from phd2client.guider import Guider
 
 
 def WaitForSettleDone(guider: Guider):
