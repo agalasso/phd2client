@@ -24,4 +24,4 @@ with Guider("localhost", connect=True) as guider:
         print(f"Guider Error: {e}")
 ```
 
-See [phd2client.py](https://github.com/agalasso/phd2client/blob/master/python/examples/phd2client.py) for a more complete example.
+See [examples](https://github.com/agalasso/phd2client/blob/master/python/examples/) for more complete examples.
