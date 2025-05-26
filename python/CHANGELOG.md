@@ -1,3 +1,7 @@
+### 0.3.0
+
+- python: add capture_single_frame
+
 ### 0.2.0
 
 - python: GuiderException renamed to GuiderError

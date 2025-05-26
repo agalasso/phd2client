@@ -1,1 +1,1 @@
-phd2client >= 0.2.0
+phd2client >= 0.3.0
