@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv --quiet run --script
 # /// script
 # dependencies = [
-#   "phd2client",
+#   "phd2client>=0.3.0",
 # ]
 # ///
 """
