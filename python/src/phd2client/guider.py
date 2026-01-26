@@ -194,6 +194,7 @@ class Guider:
     cond = threading.Condition()
     response: dict[str, Any] | None = None
     AppState: str = ""
+    FrameNum: int | None = None
     AvgDist: float = 0
     Version: str = ""
     PHDSubver: str = ""
@@ -300,9 +301,11 @@ class Guider:
         elif e == "LoopingExposures":
             with self.lock:
                 self.AppState = "Looping"
+                self.FrameNum = ev["Frame"]
         elif e == "LoopingExposuresStopped" or e == "GuidingStopped":
             with self.lock:
                 self.AppState = "Stopped"
+                self.FrameNum = None
         elif e == "StarLost":
             with self.lock:
                 self.AppState = "LostLock"
