@@ -8,7 +8,7 @@ import threading
 import time
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Self, cast
 
 
 @dataclass
@@ -718,3 +718,18 @@ class Guider:
             result = self.single_frame
             self.single_frame = None
         return result
+
+    def SetLimitFrame(self, roi: Subframe | None):
+        if roi is None:
+            roi_value = None
+        else:
+            roi_value = [roi.x, roi.y, roi.width, roi.height]
+        self.Call("set_limit_frame", {"roi": roi_value})
+
+    def GetLimitFrame(self) -> Subframe | None:
+        result = self.Call("get_limit_frame")
+        roi = result["roi"]
+        if roi is not None:
+            roi = cast(list[int], roi)
+            roi = Subframe(x=roi[0], y=roi[1], width=roi[2], height=roi[3])
+        return roi
