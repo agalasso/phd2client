@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=${BASH_SOURCE[0]%/*}
+
+PYTHONPATH=${SCRIPT_DIR}/src/ python3 "$SCRIPT_DIR"/examples/alternate-loop-and-capture.py
